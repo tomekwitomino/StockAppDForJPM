@@ -7,10 +7,17 @@
 
     <string name="Data_for_stock">Data for stock</string>
     <string name="Looking_for_stock_data">"Looking for stock data "</string>
-    <string name="BAR_GRAPH">BAR GRAPH</string>
-    <string name="LINE_GRAPH">LINE GRAPH</string>
-    <string name="AREA_GRAPH">AREA GRAPH</string>
+    <string name="BAR_GRAPH">BAR</string>
+    <string name="LINE_GRAPH">LINE</string>
+    <string name="AREA_GRAPH">AREA</string>
     <string name="Refreshed">Refreshed</string>
     <string name="Company_name">Company name</string>
+    <string name="Select_a_stock">Select a Stock</string>
+    <string name="Exchange">Exchange</string>
+    <string name="fifty_two_week_high">52 week high</string>
+    <string name="fifty_two_week_low">52 week low</string>
+    <string name="fifty_day_moving_average">50 day moving average</string>
+    <string name="Profit_Margin">Profit Margin</string>
+    <string name="CANDLE_GRAPH">CANDLE</string>
 
 </resources>

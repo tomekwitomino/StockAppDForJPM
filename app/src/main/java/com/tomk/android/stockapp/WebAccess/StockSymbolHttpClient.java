@@ -15,7 +15,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 
 /**
- * Created by Tom Kowszun on 11/10/2017.
+ * Created by Tom Kowszun
  * <p>
  */
 public class StockSymbolHttpClient {
@@ -24,13 +24,9 @@ public class StockSymbolHttpClient {
     public static final int GOOD_CONNECTION = 200;
 
     public String getStockData(String stockSymbol, String interval, String outputSize, String seriesType, String apiKey, String requestedType) {
-
         outputSize = MainActivity.OUTPUT_SIZE_VAL;
-        String queryString = null;
-
         return getStockDataForQueryString(stockSymbol, interval, outputSize, seriesType, apiKey, requestedType);
     }
-
 
     private String getStockDataForQueryString(String stockSymbol, String interval, String outputSize, String seriesType, String apiKey, String requestedType) {
         InputStream is = null;
@@ -57,8 +53,5 @@ public class StockSymbolHttpClient {
             Log.e("DEBUG", "Network call failed ");
             return returnErrorMessage;
         }
-
     }
-
-
 }

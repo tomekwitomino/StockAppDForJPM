@@ -7,7 +7,6 @@ import android.util.Log;
 import com.tomk.android.stockapp.MainActivity;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 import okhttp3.OkHttpClient;
 import okhttp3.ResponseBody;

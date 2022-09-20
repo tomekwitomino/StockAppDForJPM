@@ -1,4 +1,4 @@
-package com.tomk.android.stockapp;
+package com.tomk.android.stockapp.models;
 
 /**
  * Created by Tom Kowszun.
@@ -12,9 +12,8 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
-import com.tomk.android.stockapp.models.MetaData;
-import com.tomk.android.stockapp.models.StockResponse;
-import com.tomk.android.stockapp.models.TimeSeriesItem;
+import com.tomk.android.stockapp.WebAccess.StockListItem;
+import com.tomk.android.stockapp.Util;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -148,9 +147,8 @@ public class StockDbAdapter {
 
         long resultInsertCO = insertCompanyOverview(stockResponse.getCompanyOverviewMap(), stockResponse.getMetaData().getSymbol(), true);
 
-        System.out.println(" 88888888888888888 symbol from CompOve" + stockResponse.getCompanyOverviewMap().get("symbol") + "   symbol from metaData " + stockResponse.getMetaData().getSymbol());
+        Log.d(TAG," symbol from Company Overview" + stockResponse.getCompanyOverviewMap().get("symbol") + "   symbol from metaData " + stockResponse.getMetaData().getSymbol());
     }
-
 
     private long insertMetaData(MetaData metaData, boolean replace) {
 
@@ -169,11 +167,11 @@ public class StockDbAdapter {
 
                 result = stockDatabase.insertWithOnConflict(STOCK_METADATA_TABLE, null, newValues, SQLiteDatabase.CONFLICT_IGNORE);
             } catch (IllegalArgumentException e) {
-                System.out.println(" IllegalArgumentException " + e.toString());
+                Log.d(TAG," IllegalArgumentException " + e.toString());
             } catch (SQLException e) {
-                System.out.println(" SQLException " + e.toString());
+                Log.d(TAG," SQLException " + e.toString());
             } catch (Exception e) {
-                System.out.println(" Exception " + e.toString());
+                Log.d(TAG," Exception " + e.toString());
             }
 
         } else {
@@ -204,11 +202,11 @@ public class StockDbAdapter {
 
                     result = stockDatabase.insertWithOnConflict(STOCK_TIME_SERIES_TABLE, null, newValues, SQLiteDatabase.CONFLICT_IGNORE);
                 } catch (IllegalArgumentException e) {
-                    System.out.println(TAG + " IllegalArgumentException " + e.toString());
+                    Log.d(TAG, " IllegalArgumentException " + e.toString());
                 } catch (SQLException e) {
-                    System.out.println(TAG + " SQLException " + e.toString());
+                    Log.d(TAG, " SQLException " + e.toString());
                 } catch (Exception e) {
-                    System.out.println(TAG + " - Exception " + e.toString());
+                    Log.d(TAG, " Exception " + e.toString());
                 }
             }
         } else {
@@ -332,11 +330,11 @@ public class StockDbAdapter {
 
 
                 } catch (IllegalArgumentException e) {
-                    System.out.println(TAG + " IllegalArgumentException " + e.toString());
+                    Log.d(TAG," IllegalArgumentException " + e.toString());
                 } catch (SQLException e) {
-                    System.out.println(TAG + " SQLException " + e.toString());
+                    Log.d(TAG, " SQLException " + e.toString());
                 } catch (Exception e) {
-                    System.out.println(TAG + " - Exception " + e.toString());
+                    Log.d(TAG, " - Exception " + e.toString());
                 }
 
             }
@@ -364,11 +362,11 @@ public class StockDbAdapter {
                     newValues.put(StockDbAdapter.MARKET_DESCRIPTION, item.getMarketDescription());
                     result = stockDatabase.insertWithOnConflict(STOCKS_LIST_TABLE, null, newValues, SQLiteDatabase.CONFLICT_IGNORE);
                 } catch (IllegalArgumentException e) {
-                    System.out.println(" IllegalArgumentException " + e.toString());
+                    Log.d(TAG," IllegalArgumentException " + e.toString());
                 } catch (SQLException e) {
-                    System.out.println(" SQLException " + e.toString());
+                    Log.d(TAG," SQLException " + e.toString());
                 } catch (Exception e) {
-                    System.out.println(" Exception " + e.toString());
+                    Log.d(TAG," Exception " + e.toString());
                 }
             }
         } else {
@@ -418,11 +416,11 @@ public class StockDbAdapter {
         try {
             result = stockDatabase.delete(STOCKS_LIST_TABLE, null, null) > 0;
         } catch (IllegalArgumentException e) {
-            System.out.println(" IllegalArgumentException " + e.toString());
+            Log.d(TAG," IllegalArgumentException " + e.toString());
         } catch (SQLException e) {
-            System.out.println(" SQLException " + e.toString());
+            Log.d(TAG," SQLException " + e.toString());
         } catch (Exception e) {
-            System.out.println(" Exception " + e.toString());
+            Log.d(TAG," Exception " + e.toString());
         }
 
         return result;
@@ -438,11 +436,11 @@ public class StockDbAdapter {
             result = stockDatabase.delete(STOCKS_LIST_TABLE, null, null) > 0;
             result = stockDatabase.delete(COMPANY_OVERVIEW_TABLE, null, null) > 0;
         } catch (IllegalArgumentException e) {
-            System.out.println(" IllegalArgumentException " + e.toString());
+            Log.d(TAG," IllegalArgumentException " + e.toString());
         } catch (SQLException e) {
-            System.out.println(" SQLException " + e.toString());
+            Log.d(TAG," SQLException " + e.toString());
         } catch (Exception e) {
-            System.out.println(" Exception " + e.toString());
+            Log.d(TAG," Exception " + e.toString());
         }
 
         return result;

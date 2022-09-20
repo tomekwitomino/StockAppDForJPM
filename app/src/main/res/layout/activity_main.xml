@@ -17,7 +17,7 @@
     <RelativeLayout
         android:id="@+id/main_relative_layout"
         style="@style/MainPanel"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
 
@@ -36,13 +36,14 @@
                 android:layout_marginRight="5dp"
                 android:textSize="14sp" />
 
-            <com.tomk.android.stockapp.GraphChart
+            <com.tomk.android.stockapp.charting.GraphChart
                 android:id="@+id/Graph"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
                 android:layout_marginLeft="10dp"
+                android:layout_marginRight="10dp"
                 android:layout_marginBottom="0dp"
-                android:background="@color/background_color"
+                android:background="#000000"
                 android:paddingLeft="20dp"
                 android:paddingTop="10dp"
                 android:paddingRight="20dp"
@@ -52,14 +53,14 @@
                 android:id="@+id/buttonsPanel"
                 android:layout_width="match_parent"
                 android:layout_height="30dp"
-                android:gravity="center"
+                android:gravity="start"
                 android:orientation="horizontal">
 
                 <android.support.v7.widget.AppCompatButton
                     android:id="@+id/bar_graph"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="5dp"
+                    android:layout_marginLeft="3dp"
                     android:layout_marginRight="5dp"
                     android:textSize="9sp"
                     android:text="@string/BAR_GRAPH" />
@@ -82,6 +83,14 @@
                     android:textSize="9sp"
                     android:text="@string/AREA_GRAPH" />
 
+                <android.support.v7.widget.AppCompatButton
+                    android:id="@+id/candle_graph"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="4dp"
+                    android:layout_marginRight="3dp"
+                    android:textSize="9sp"
+                    android:text="@string/CANDLE_GRAPH" />
 
             </LinearLayout>
         </LinearLayout>
@@ -116,7 +125,7 @@
                     android:layout_marginRight="5dp"
                     android:layout_marginTop="25dp"
                     android:textColor="@android:color/holo_green_light"
-                    android:text="Company name"
+                    android:text="@string/Company_name"
                     android:textSize="20sp" />
 
                 <android.support.v7.widget.RecyclerView

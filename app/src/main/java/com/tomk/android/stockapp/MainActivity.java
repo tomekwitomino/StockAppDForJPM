@@ -1,13 +1,10 @@
 package com.tomk.android.stockapp;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.preference.PreferenceManager;
-import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -24,41 +21,42 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.tomk.android.stockapp.WebAccess.GetStockIntentService;
-
+import com.tomk.android.stockapp.WebAccess.StockDataAccess;
+import com.tomk.android.stockapp.WebAccess.StockListItem;
+import com.tomk.android.stockapp.charting.GraphChart;
 import com.tomk.android.stockapp.models.Repository.DataRepository;
 import com.tomk.android.stockapp.models.Repository.RepositoryItem;
+import com.tomk.android.stockapp.models.StockDbAdapter;
 import com.tomk.android.stockapp.models.StockResponse;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * Created by Tom Kowszun on 11/10/2017.
+ * Created by Tom Kowszun
  */
 
-public class MainActivity extends AppCompatActivity implements ActivityCompat.OnRequestPermissionsResultCallback, android.support.v4.app.LoaderManager.LoaderCallbacks {
+public class MainActivity extends AppCompatActivity {
 
-    public static final int DATA_POINTS_NUM = 50;
+    // maximum data points accepted. if more appear, we cannot handle it at this point
+    public static final int DATA_POINTS_NUM = 40;
 
-    public static final String STOCK_SYMBOL = "stockSymbol";
-    public static final String INTERVAL = "interval";
-    public static final String OUTPUT_SIZE = "outputSize";
-    public static final String SERIES_TYPE = "seriesType";
-    public static final String API_KEY_OBTAINED = "apiKeyObtained";
+    // reg, complex
+    public static final String REQUEST_TYPE_VAL = "reg";
 
     // 1min, 5min, 15min, 30min, 60min
     public static final String INTERVAL_VAL = "60min";
-
     // compact, full
     public static final String OUTPUT_SIZE_VAL = "compact";
     // open
     public static final String SERIES_TYPE_VAL = "seriesType";
-    // UKY832CIXXPKWVJV
+
+    // key from the alpha vantage
     public static final String API_KEY_OBTAINED_VAL = "apiKeyObtained";
 
     private StockDbAdapter stockDbAdapter;
@@ -68,9 +66,10 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
     private Button barGraphButton;
     private Button lineGraphButton;
     private Button areaGraphButton;
+    private Button candleStickGraphButton;
     private android.support.v7.widget.AppCompatTextView refreshed;
 
-    private static final String TAG = "MyActivity";
+    private static final String TAG = "MainActivity";
     private static final String DEFAULT_STOCK = "IBM";
     public static final String STOCK_NOT_FOUND = "Stock Not Found";
     public static final String ERROR_CONNECTING = "Error Connecting";
@@ -82,12 +81,6 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
     private GraphChart graphChart;
     public static int graphDisplayType = GraphChart.MINOR_GRAPH;
 
-    private static final int STOCK_LOADER_ID = 1;
-    private static final int LIST_LOADER_ID = 2;
-
-    private final StockReceiver stockReceiver = new StockReceiver();
-    private StockDbAsyncLoader stockDbAsyncLoader;
-    private ListOfStocksDbAsyncLoader listOfStocksDbAsyncLoader;
     private RecyclerView recyclerViewStockList;
     private RecyclerView recyclerViewCompanyOverview;
     public boolean blocking = false;
@@ -103,52 +96,23 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
     private LinearLayout companyOverviewLayout = null;
     private TextView companyName = null;
 
+    StockDataAccess stockDataAccess = null;
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-
-        if (item.getItemId() == android.R.id.home) {
-            setHomeDisplay(!isHomeNow);
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-    public boolean onCreateOptionsMenu(Menu menu) {
-        return true;
-    }
-
-    private void setHomeDisplay(boolean isHome) {
-        if (isHome) {
-            recyclerViewStockList.setVisibility(View.VISIBLE);
-            companyOverviewLayout.setVisibility(View.INVISIBLE);
-            getSupportActionBar().setHomeAsUpIndicator(R.mipmap.ic_my_home);
-            toolBar.setTitle(" Select a stock");
-            graphPanel.setVisibility(View.GONE);
-            this.isHomeNow = true;
-        } else {
-            recyclerViewStockList.setVisibility(View.INVISIBLE);
-            companyOverviewLayout.setVisibility(View.VISIBLE);
-            getSupportActionBar().setHomeAsUpIndicator(R.mipmap.ic_my_return);
-            graphChart.changeGraphType(GraphChart.LINEAR_GRAPH);
-            toolBar.setTitle(getResources().getString(R.string.Data_for_stock) + " " + currentStockDisplayed);
-            graphPanel.setVisibility(View.VISIBLE);
-            this.isHomeNow = false;
-        }
-    }
+    StockResponse stockResponse = null;
+    ArrayList<StockListItem> listResponse = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         this.deleteDatabase(StockDbAdapter.DATABASE_NAME);
 
+        stockDataAccess = new StockDataAccess(this);
+
         stockDbAdapter = new StockDbAdapter(this.getApplicationContext());
         stockDbAdapter.open();
 
         setContentView(R.layout.activity_main);
-
-
         companyOverviewLayout = findViewById(R.id.company_overview_layout);
-
         companyName = findViewById(R.id.company_name);
 
         progressBar = findViewById(R.id.pbLoading);
@@ -176,14 +140,12 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         recyclerViewStockList.setLayoutManager(recyclerlayoutManagerStockList);
         recyclerViewStockList.setHasFixedSize(true);
 
-
         recyclerViewCompanyOverview = findViewById(R.id.recycler_view_company_overview);
         RecyclerView.LayoutManager recyclerlayoutManagerCompanyOverview = new LinearLayoutManager(MainActivity.this);
         recyclerViewCompanyOverview.setLayoutManager(recyclerlayoutManagerCompanyOverview);
         recyclerViewCompanyOverview.setHasFixedSize(true);
 
         graphPanel = findViewById(R.id.graph_panel);
-
 
         // Get stock name from preferences. If not in Preferences, use the default coded in this class.
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -222,16 +184,59 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
             }
         });
 
+        candleStickGraphButton = findViewById(R.id.candle_graph);
+        candleStickGraphButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                graphDisplayType = GraphChart.CANDLE_STICK_GRAPH;
+                MainActivity.this.graphChart.changeGraphType(graphDisplayType);
+            }
+        });
+
         // Height of the graph in percent of the total device height
-        int heightInPercent = 20;
+        int heightInPercent = 25;
         int graphHeight = calculatePercentageHeight(heightInPercent);
         graphChart = MainActivity.this.findViewById(R.id.Graph);
 
         graphChart.getLayoutParams().height = graphHeight;
         graphChart.init(null, graphDisplayType);
         setHomeDisplay(true);
-        refreshed = findViewById(R.id.refreshed);
+        refreshed = findViewById(R.id.refreshed); // display the details page subtitle
         onItemSelected(nameOfTheStockEntered);
+    }
+
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        if (item.getItemId() == android.R.id.home) {
+            setHomeDisplay(!isHomeNow);
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    public boolean onCreateOptionsMenu(Menu menu) {
+        return true;
+    }
+
+    // sets the display to list of stocks
+    private void setHomeDisplay(boolean isHome) {
+        if (isHome) {
+            recyclerViewStockList.setVisibility(View.VISIBLE);
+            companyOverviewLayout.setVisibility(View.INVISIBLE);
+            getSupportActionBar().setHomeAsUpIndicator(R.mipmap.ic_my_home);
+            toolBar.setTitle(getResources().getString(R.string.Select_a_stock));
+            graphPanel.setVisibility(View.GONE);
+            this.isHomeNow = true;
+        } else { // sets the current display to the details page
+            recyclerViewStockList.setVisibility(View.INVISIBLE);
+            companyOverviewLayout.setVisibility(View.VISIBLE);
+            getSupportActionBar().setHomeAsUpIndicator(R.mipmap.ic_my_return);
+            graphChart.changeGraphType(GraphChart.LINEAR_GRAPH);
+            toolBar.setTitle(getResources().getString(R.string.Data_for_stock) + " " + currentStockDisplayed);
+            graphPanel.setVisibility(View.VISIBLE);
+            this.isHomeNow = false;
+        }
     }
 
     private int calculatePercentageHeight(int desiredPercentage) {
@@ -274,7 +279,11 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
 
         @Override
         public int getItemCount() {
-            return this.stockList.size();
+            if(stockList != null)
+            {
+                return this.stockList.size();
+            } else
+                return 0;
         }
 
         public void setItems(ArrayList<StockListItem> list) {
@@ -315,7 +324,150 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         }
     }
 
-    // Adapter for the recycler view that displays Company Overview the main activity window
+
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        progressBar.setVisibility(View.INVISIBLE);
+        blocking = false;
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        progressBar.setVisibility(View.INVISIBLE);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        progressBar.setVisibility(View.INVISIBLE);
+    }
+
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        Log.d(TAG, "Saving data - instance state ");
+    }
+
+    public void updateUIwithData() {
+
+        if (stockResponse != null && stockResponse.getMetaData() != null) {
+
+            MainActivity.this.graphChart.newStockReceived(stockResponse);
+
+            Date date = stockResponse.getMetaData().getLastRefreshedDate();
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("EEE MM/dd/yyyy");
+            String dateString = simpleDateFormat.format(date);
+
+            Log.d(TAG, "Saving symbol to SharedPreferences");
+            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putString("stockNameKey", stockResponse.getMetaData().getSymbol());
+            editor.apply();
+
+            toolBar.setTitle(getResources().getString(R.string.Data_for_stock) + " " + stockResponse.getMetaData().getSymbol());
+            currentStockDisplayed = stockResponse.getMetaData().getSymbol();
+            refreshed.setText(getResources().getString(R.string.Refreshed) + "  " + dateString);
+
+            LinkedHashMap compOverMap = stockResponse.getCompanyOverviewMap();
+            companyOverviewRVadapter = new CompanyOverviewRVadapter(compOverMap);
+            recyclerViewCompanyOverview.setAdapter(companyOverviewRVadapter);
+            companyOverviewRVadapter.notifyDataSetChanged();
+
+            setHomeDisplay(false);
+
+            graphPanel.setVisibility(View.VISIBLE);
+            progressBar.setVisibility(View.INVISIBLE);
+        }
+
+        if (stockListRVadapter == null) {
+            stockListRVadapter = new StockListRVadapter(listResponse);
+            recyclerViewStockList.setAdapter(stockListRVadapter);
+        } else {
+            stockListRVadapter = new StockListRVadapter(listResponse);
+            recyclerViewStockList.setAdapter(stockListRVadapter);
+            stockListRVadapter.notifyDataSetChanged();
+        }
+        progressBar.setVisibility(View.INVISIBLE);
+    }
+
+
+    public void onItemSelected(String stockSymbol) {
+
+        DataRepository dataRepo = new DataRepository();
+        String stockName = null;
+        for (RepositoryItem i : dataRepo.getRepository()) {
+            RepositoryItem item = i;
+            if (item.getStockSymbol().equals(stockSymbol)) {
+                stockName = item.getStockName();
+                companyName.setText(getResources().getString(R.string.Company_name) + ": " + stockName);
+            }
+        }
+
+        if (!blocking) {
+            blocking = true;
+            progressBar.setVisibility(ProgressBar.VISIBLE);
+            toolBar.setTitle(getResources().getString(R.string.Looking_for_stock_data) + stockSymbol + " ...");
+            graphPanel.setVisibility(View.VISIBLE);
+
+            // main call to access the webservices and write data into db
+            onItemSelectedBackgroundWork(REQUEST_TYPE_VAL, stockSymbol, INTERVAL_VAL, OUTPUT_SIZE_VAL, SERIES_TYPE_VAL, API_KEY_OBTAINED_VAL);
+        } else {
+            Log.d(TAG, " >>>>>>>>>>>>>>>>> BLOCKING <<<<<<<<<<<<<< ");
+        }
+    }
+
+    public boolean onItemSelectedBackgroundWork(String requestType, String stockSymbol, String interval, String outputSize, String seriesType, String apiKeyObtained) {
+
+        DataRepository dataRepo = new DataRepository();
+        String stockName = null;
+        for (RepositoryItem i : dataRepo.getRepository()) {
+            RepositoryItem item = i;
+            if (item.getStockSymbol().equals(stockSymbol)) {
+                stockName = item.getStockName();
+                companyName.setText(getResources().getString(R.string.Company_name) + ": " + stockName);
+            }
+        }
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
+        boolean[] success = new boolean[1];
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                //Background work here
+                try {
+                    // Access the webservices and write data into db
+                    // returns true if call successful
+                    success[0] = stockDataAccess.getStockData(requestType, stockSymbol, interval, outputSize, seriesType, apiKeyObtained);
+
+                    // Read the data from the db
+                    if (success[0] == true) {
+                        stockResponse = stockDbAdapter.getStockResponse();
+                        listResponse = stockDbAdapter.getStocksList();
+                    }
+
+                    blocking = false;
+                } catch (Exception e) {
+                    success[0] = false;
+                }
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        //UI Thread work here
+                        updateUIwithData();
+                    }
+                });
+            }
+        });
+
+        return success[0];
+    }
+    // Adapter for the recycler view that displays Company Overview in the main activity window
     class CompanyOverviewRVadapter extends RecyclerView.Adapter<CompanyOverviewItemVH> {
         final LinkedHashMap<String, String> companyOverviewMap;
         private CompanyOverviewItemVH viewHolder;
@@ -338,19 +490,19 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
 
             // For now this is hardcoded as the full list is very long and key names are not proper English.  Need to decide which of the items are worth showing
             if (position == 0) {
-                viewHolder.itemNameTV.setText("Exchange ");
+                viewHolder.itemNameTV.setText(getResources().getString(R.string.Exchange));
                 viewHolder.itemValueTV.setText(companyOverviewMap.get("exchange"));
             } else if (position == 1) {
-                viewHolder.itemNameTV.setText("52 week high ");
+                viewHolder.itemNameTV.setText(getResources().getString(R.string.fifty_two_week_high));
                 viewHolder.itemValueTV.setText(companyOverviewMap.get("_52WeekHigh"));
             } else if (position == 2) {
-                viewHolder.itemNameTV.setText("52 week low ");
-                viewHolder.itemValueTV.setText(companyOverviewMap.get("_52WeekHigh"));
+                viewHolder.itemNameTV.setText(getResources().getString(R.string.fifty_two_week_low));
+                viewHolder.itemValueTV.setText(companyOverviewMap.get("_52WeekLow"));
             } else if (position == 3) {
-                viewHolder.itemNameTV.setText("50 day moving average");
+                viewHolder.itemNameTV.setText(getResources().getString(R.string.fifty_day_moving_average));
                 viewHolder.itemValueTV.setText(companyOverviewMap.get("_50DayMovingAverage"));
             } else {
-                viewHolder.itemNameTV.setText("Profit Margin ");
+                viewHolder.itemNameTV.setText(getResources().getString(R.string.Profit_Margin));
                 viewHolder.itemValueTV.setText(companyOverviewMap.get("profitMargin"));
             }
 
@@ -358,7 +510,7 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
 
         @Override
         public int getItemCount() {
-            // Harcoded for now
+            // Harcoded for now so it will display only five items
             return 5;
         }
 
@@ -380,171 +532,4 @@ public class MainActivity extends AppCompatActivity implements ActivityCompat.On
         }
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        progressBar.setVisibility(View.INVISIBLE);
-    }
-
-
-    @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        Log.d(TAG, "Saving data - instance state ");
-    }
-
-    @Override
-    public android.support.v4.content.AsyncTaskLoader onCreateLoader(int id, Bundle args) {
-
-        if (id == STOCK_LOADER_ID) {
-            stockDbAsyncLoader = new StockDbAsyncLoader(this.getApplicationContext(), this.stockDbAdapter);
-            return stockDbAsyncLoader;
-        } else if (id == LIST_LOADER_ID) {
-            listOfStocksDbAsyncLoader = new ListOfStocksDbAsyncLoader(this.getApplicationContext(), this.stockDbAdapter);
-            return listOfStocksDbAsyncLoader;
-        }
-
-        return null;
-    }
-
-    @Override
-    public void onLoadFinished(android.support.v4.content.Loader loader, Object data) {
-
-        StockResponse stocksResponse = null;
-        ArrayList<StockListItem> listResponse = null;
-
-        if (loader.getId() == STOCK_LOADER_ID) {
-            stocksResponse = (StockResponse) data;
-            if (stocksResponse != null && stocksResponse.getMetaData() != null) {
-
-                MainActivity.this.graphChart.newStockReceived(stocksResponse);
-
-                Date date = stocksResponse.getMetaData().getLastRefreshedDate();
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("EEE MM/dd/yyyy");
-                String dateString = simpleDateFormat.format(date);
-
-                Log.d(TAG, "Saving symbol to SharedPreferences");
-                SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
-                SharedPreferences.Editor editor = preferences.edit();
-                editor.putString("stockNameKey", stocksResponse.getMetaData().getSymbol());
-                editor.apply();
-
-                toolBar.setTitle(getResources().getString(R.string.Data_for_stock) + " " + stocksResponse.getMetaData().getSymbol());
-                currentStockDisplayed = stocksResponse.getMetaData().getSymbol();
-                refreshed.setText(getResources().getString(R.string.Refreshed) + "  " + dateString);
-
-                LinkedHashMap compOverMap = stocksResponse.getCompanyOverviewMap();
-                companyOverviewRVadapter = new CompanyOverviewRVadapter(compOverMap);
-                recyclerViewCompanyOverview.setAdapter(companyOverviewRVadapter);
-                companyOverviewRVadapter.notifyDataSetChanged();
-
-                setHomeDisplay(false);
-
-
-                graphPanel.setVisibility(View.VISIBLE);
-                progressBar.setVisibility(View.INVISIBLE);
-            }
-        } else if (loader.getId() == LIST_LOADER_ID) {
-
-            try {
-                listResponse = (ArrayList<StockListItem>) data;
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            if (stockListRVadapter == null) {
-                stockListRVadapter = new StockListRVadapter(listResponse);
-                recyclerViewStockList.setAdapter(stockListRVadapter);
-            } else {
-                stockListRVadapter = new StockListRVadapter(listResponse);
-                recyclerViewStockList.setAdapter(stockListRVadapter);
-                stockListRVadapter.notifyDataSetChanged();
-            }
-        }
-
-        progressBar.setVisibility(View.INVISIBLE);
-    }
-
-    @Override
-    public void onLoaderReset(android.support.v4.content.Loader loader) {
-
-    }
-
-    public void onItemSelected(String stockSymbol) {
-
-        DataRepository dataRepo = new DataRepository();
-        String stockName = null;
-        for (RepositoryItem i : dataRepo.getRepository())
-        {
-            RepositoryItem item = i;
-            if(item.getStockSymbol().equals(stockSymbol))
-            {
-                stockName = item.getStockName();
-                companyName.setText(getResources().getString(R.string.Company_name) +  ": " + stockName);
-            }
-        }
-
-        if (!blocking) {
-            blocking = true;
-            progressBar.setVisibility(ProgressBar.VISIBLE);
-            toolBar.setTitle(getResources().getString(R.string.Looking_for_stock_data) + stockSymbol + " ...");
-
-            Intent getStockDataIntServ = new Intent(getApplicationContext(), GetStockIntentService.class);
-            getStockDataIntServ.putExtra(STOCK_SYMBOL, stockSymbol);
-            getStockDataIntServ.putExtra(INTERVAL, INTERVAL_VAL);
-            getStockDataIntServ.putExtra(OUTPUT_SIZE, OUTPUT_SIZE_VAL);
-            getStockDataIntServ.putExtra(SERIES_TYPE, SERIES_TYPE_VAL);
-            getStockDataIntServ.putExtra(API_KEY_OBTAINED, API_KEY_OBTAINED_VAL);
-
-            graphPanel.setVisibility(View.VISIBLE);
-
-            startService(getStockDataIntServ);
-
-        } else {
-            Log.d(TAG, " >>>>>>>>>>>>>>>>> BLOCKING !!! <<<<<<<<<<<<<< ");
-        }
-    }
-
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        progressBar.setVisibility(View.INVISIBLE);
-        registerReceiver(stockReceiver, new IntentFilter(GetStockIntentService.STOCK_LIST_ACTION));
-        blocking = false;
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        progressBar.setVisibility(View.INVISIBLE);
-        unregisterReceiver(stockReceiver);
-    }
-
-    public class StockReceiver extends BroadcastReceiver {
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-
-            if (intent.getAction().equals(GetStockIntentService.STOCK_LIST_ACTION)) {
-                String itemCount = intent.getExtras().getString(GetStockIntentService.NUMBER_OF_ITEMS);
-                String resultString = intent.getStringExtra(GetStockIntentService.RESULT_STRING);
-                Toast toast = null;
-                if (Integer.valueOf(itemCount) > 0 && resultString.equals(MainActivity.NO_ERRORS)) {
-                    getLoaderManager().destroyLoader(STOCK_LOADER_ID);
-                    stockDbAsyncLoader = (StockDbAsyncLoader) getSupportLoaderManager().initLoader(STOCK_LOADER_ID, null, MainActivity.this);
-
-                    stockDbAsyncLoader.forceLoad();
-
-                    getLoaderManager().destroyLoader(LIST_LOADER_ID);
-                    listOfStocksDbAsyncLoader = (ListOfStocksDbAsyncLoader) getSupportLoaderManager().initLoader(LIST_LOADER_ID, null, MainActivity.this);
-                    progressBar.setVisibility(View.VISIBLE);
-                    listOfStocksDbAsyncLoader.forceLoad();
-                    Log.i(TAG, " >>>>>>>>>>>>>>>>> Received intent service data " + itemCount);
-
-                }
-            }
-            blocking = false;
-        }
-    }
 }

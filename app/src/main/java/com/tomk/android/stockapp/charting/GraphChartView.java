@@ -1,4 +1,4 @@
-package com.tomk.android.stockapp;
+package com.tomk.android.stockapp.charting;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -8,13 +8,10 @@ import android.graphics.RectF;
 import android.support.v4.content.ContextCompat;
 import android.view.View;
 
-import com.tomk.android.stockapp.models.ChartItem;
-
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by Tom Kowszun on 6/1/2018.
+ * Created by Tom Kowszun
  */
 public class GraphChartView extends View {
 
@@ -23,7 +20,7 @@ public class GraphChartView extends View {
     private List<ChartItem> chartItems;
     private int diagramType = GraphChart.BAR_GRAPH;
 
-    private final int strokeWidth = 2;
+    private final int strokeWidth = 3;
 
 
     final Paint polyPaint = new Paint();
@@ -76,7 +73,7 @@ public class GraphChartView extends View {
 
                     if (diagramType == GraphChart.BAR_GRAPH) {
                         graphPaint.setStrokeWidth(1);
-                        canvas.drawRect(it.left, it.top, it.right, it.bottom, graphPaint);
+                        canvas.drawRect(it.left, it.top, it.right, graphBounds.bottom, graphPaint);
                     } else if (diagramType == GraphChart.LINEAR_GRAPH) {
 
                         if (cnt == 0) {
@@ -97,7 +94,17 @@ public class GraphChartView extends View {
                         }
                         oldTop = it.top;
                         oldLeft = it.left;
-                    } else
+                    } else if (diagramType == GraphChart.CANDLE_STICK_GRAPH) {
+                        graphPaint.setStrokeWidth(4);
+                        canvas.drawRect(it.left, it.top, it.right, it.bottom, graphPaint);
+
+                        canvas.drawLine(it.middle, it.top, it.middle, it.highWickTip, graphPaint);
+                        canvas.drawLine(it.middle, it.bottom, it.middle, it.highWickBase, graphPaint);
+
+                        canvas.drawLine(it.middle, it.bottom, it.middle, it.lowWickTip, graphPaint);
+                        canvas.drawLine(it.middle, it.bottom, it.middle, it.lowWickBase, graphPaint);
+
+                    } else // effectively default becomes a point graph
                     {
                         canvas.drawPoint(it.left, it.top, graphPaint);
                     }

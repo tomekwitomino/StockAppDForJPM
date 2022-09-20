@@ -1,4 +1,4 @@
-package com.tomk.android.stockapp;
+package com.tomk.android.stockapp.WebAccess;
 
 
 /**

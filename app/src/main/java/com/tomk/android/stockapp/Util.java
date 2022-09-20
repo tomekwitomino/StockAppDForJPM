@@ -13,7 +13,7 @@ import java.util.Date;
 import java.util.Locale;
 
 /**
- * Created by Tom Kowszun on 5/11/2016.
+ * Created by Tom Kowszun
  */
 
 public class Util {
@@ -71,7 +71,7 @@ public class Util {
             View view = vg.getChildAt(i);
             GradientDrawable gd = new GradientDrawable();
             gd.setStroke(1, Color.RED);
-            view.setBackgroundDrawable(gd);
+            view.setBackground(gd);
             outlineViews(view);
         }
     }

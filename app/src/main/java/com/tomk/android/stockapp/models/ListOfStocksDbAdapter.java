@@ -1,4 +1,4 @@
-package com.tomk.android.stockapp;
+package com.tomk.android.stockapp.models;
 
 /**
  * Created by Tom Kowszun.
@@ -11,6 +11,8 @@ import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
+
+import com.tomk.android.stockapp.WebAccess.StockListItem;
 
 import java.util.ArrayList;
 
@@ -82,8 +84,7 @@ public class ListOfStocksDbAdapter {
             String s = c.getString(0);
             if (!s.equals("android_metadata")) {
                 dirArray.add(s);
-                String outS = " z================>  Table name " + s + " " + dbPath + " is DB open ? " + stocksListDatabase.isOpen();
-                Log.i(" *=* ", outS);
+                Log.i(TAG, " z================>  Table name " + s + " " + dbPath + " is DB open ? " + stocksListDatabase.isOpen());
             }
         }
         c.close();
@@ -92,7 +93,7 @@ public class ListOfStocksDbAdapter {
 
     public long insertStocksList(ArrayList<StockListItem> stocksList, boolean replace) {
 
-        long result = (long) 0.0;
+        long result = (long)0.0;
         if (replace) {
             for (StockListItem item : stocksList) {
 
@@ -106,11 +107,11 @@ public class ListOfStocksDbAdapter {
                     newValues.put(ListOfStocksDbAdapter.MARKET_DESCRIPTION, item.getMarketDescription());
                     result = stocksListDatabase.insertWithOnConflict(STOCKS_LIST_TABLE, null, newValues, SQLiteDatabase.CONFLICT_IGNORE);
                 } catch (IllegalArgumentException e) {
-                    System.out.println(" IllegalArgumentException " + e.toString());
+                    Log.d(TAG, " IllegalArgumentException " + e);
                 } catch (SQLException e) {
-                    System.out.println(" SQLException " + e.toString());
+                    Log.d(TAG, " SQLException " + e);
                 } catch (Exception e) {
-                    System.out.println(" Exception " + e.toString());
+                    Log.d(TAG, " Exception " + e);
                 }
             }
         } else {
@@ -160,11 +161,11 @@ public class ListOfStocksDbAdapter {
         try {
             result = stocksListDatabase.delete(STOCKS_LIST_TABLE, null, null) > 0;
         } catch (IllegalArgumentException e) {
-            System.out.println(" IllegalArgumentException " + e.toString());
+            Log.d(TAG, " IllegalArgumentException " + e);
         } catch (SQLException e) {
-            System.out.println(" SQLException " + e.toString());
+            Log.d(TAG, " SQLException " + e);
         } catch (Exception e) {
-            System.out.println(" Exception " + e.toString());
+            Log.d(TAG, " Exception " + e);
         }
 
         return result;
